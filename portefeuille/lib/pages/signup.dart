@@ -95,7 +95,7 @@ class _SignupPageState extends State<SignupPage> {
       final prefs = await SharedPreferences.getInstance();
       await prefs.setBool('isLoggedIn', true);
       await prefs.setString('userName', name);
-      await prefs.setInt('Id', userId).toString();
+      prefs.setInt('Id', userId).toString();
 
       if (!mounted) return;
 

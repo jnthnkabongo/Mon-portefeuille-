@@ -534,7 +534,7 @@ class _AddTransactionSheetState extends State<_AddTransactionSheet> {
                     _isLoadingCategories
                         ? const CircularProgressIndicator()
                         : DropdownButtonFormField<String>(
-                            value: _selectedCategory,
+                            initialValue: _selectedCategory,
                             decoration: const InputDecoration(
                               labelText: 'Catégorie',
                               border: OutlineInputBorder(),

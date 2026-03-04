@@ -132,7 +132,6 @@ class _StatsPageState extends State<StatsPage> {
 
 class _SummaryCard extends StatelessWidget {
   const _SummaryCard({
-    super.key,
     required this.title,
     required this.amount,
     required this.color,
@@ -185,7 +184,7 @@ class _SummaryCard extends StatelessWidget {
 }
 
 class _BalanceCard extends StatelessWidget {
-  const _BalanceCard({super.key, required this.balance});
+  const _BalanceCard({required this.balance});
 
   final double balance;
 
@@ -234,7 +233,7 @@ class _BalanceCard extends StatelessWidget {
 }
 
 class _ChartCard extends StatelessWidget {
-  const _ChartCard({super.key, required this.income, required this.expense});
+  const _ChartCard({required this.income, required this.expense});
 
   final double income;
   final double expense;
@@ -378,6 +377,7 @@ class _ChartCard extends StatelessWidget {
                   label: 'Revenus',
                   value: income,
                   percentage: incomePercentage,
+                  isBold: false,
                 ),
                 const SizedBox(height: 2),
                 _LegendItem(
@@ -385,6 +385,7 @@ class _ChartCard extends StatelessWidget {
                   label: 'Dépenses',
                   value: expense,
                   percentage: expensePercentage,
+                  isBold: false,
                 ),
               ],
             ),
@@ -396,7 +397,7 @@ class _ChartCard extends StatelessWidget {
 }
 
 class _CategoryChart extends StatelessWidget {
-  const _CategoryChart({super.key, required this.categoryTotals});
+  const _CategoryChart({required this.categoryTotals});
 
   final Map<String, double> categoryTotals;
 
@@ -517,7 +518,7 @@ class _LegendItem extends StatelessWidget {
     required this.label,
     required this.value,
     required this.percentage,
-    this.isBold = false,
+    required this.isBold,
   });
 
   final Color color;

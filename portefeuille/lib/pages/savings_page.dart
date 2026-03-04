@@ -204,7 +204,7 @@ class _SavingsPageState extends State<SavingsPage> {
                 ),
                 const SizedBox(height: 16),
                 DropdownButtonFormField<int>(
-                  value: selectedDeviceId,
+                  initialValue: selectedDeviceId,
                   decoration: InputDecoration(
                     labelText: 'Device',
                     border: OutlineInputBorder(),
@@ -224,7 +224,7 @@ class _SavingsPageState extends State<SavingsPage> {
                 ),
                 const SizedBox(height: 16),
                 DropdownButtonFormField<int>(
-                  value: selectedMotifId,
+                  initialValue: selectedMotifId,
                   decoration: InputDecoration(
                     labelText: 'Motif d\'épargne',
                     border: OutlineInputBorder(),
@@ -350,7 +350,7 @@ class _SavingsPageState extends State<SavingsPage> {
               ),
               const SizedBox(height: 16),
               DropdownButtonFormField<int>(
-                value: _selectedDeviceId,
+                initialValue: _selectedDeviceId,
                 decoration: InputDecoration(
                   labelText: 'Device',
                   border: OutlineInputBorder(),
@@ -370,7 +370,7 @@ class _SavingsPageState extends State<SavingsPage> {
               ),
               const SizedBox(height: 16),
               DropdownButtonFormField<int>(
-                value: _selectedMotifId,
+                initialValue: _selectedMotifId,
                 decoration: InputDecoration(
                   labelText: 'Motif d\'épargne',
                   border: OutlineInputBorder(),
