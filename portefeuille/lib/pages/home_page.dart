@@ -19,16 +19,49 @@ class _HomePageState extends State<HomePage> {
   List<FinanceTransaction> _items = const [];
   double _incomeTotal = 0;
   double _expenseTotal = 0;
+  int? _selectedDeviceId;
+  List<Map<String, dynamic>> _devices = [];
+  bool _isLoadingDevices = true;
 
   @override
   void initState() {
     super.initState();
-    _loadFuture = _reload();
+    _loadFuture = _loadData();
+  }
+
+  Future<void> _loadData() async {
+    await _loadDevices();
+    await _reload();
+  }
+
+  Future<void> _loadDevices() async {
+    try {
+      final devices = await _databaseService.getAllDevices();
+      if (mounted) {
+        setState(() {
+          _devices = devices;
+          _isLoadingDevices = false;
+          if (_selectedDeviceId == null && _devices.isNotEmpty) {
+            _selectedDeviceId = _devices.first['id'] as int;
+          }
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _isLoadingDevices = false;
+        });
+      }
+    }
   }
 
   Future<void> _reload() async {
-    final items = await _databaseService.getAllTransactions();
-    final totals = await _databaseService.getTotals();
+    final items = await _databaseService.getAllTransactions(
+      deviceId: _selectedDeviceId,
+    );
+    final totals = await _databaseService.getTotals(
+      deviceId: _selectedDeviceId,
+    );
 
     if (!mounted) return;
     setState(() {
@@ -71,7 +104,52 @@ class _HomePageState extends State<HomePage> {
         ),
         backgroundColor: Colors.teal,
         elevation: 0,
-        actions: const [UserInitialAvatar()],
+        actions: [
+          if (_isLoadingDevices)
+            const Padding(
+              padding: EdgeInsets.all(16.0),
+              child: SizedBox(
+                width: 20,
+                height: 20,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2,
+                  valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                ),
+              ),
+            )
+          else if (_devices.isNotEmpty)
+            Padding(
+              padding: const EdgeInsets.only(right: 16.0),
+              child: DropdownButton<int>(
+                value: _selectedDeviceId,
+                dropdownColor: Colors.teal.shade700,
+                icon: const Icon(Icons.arrow_drop_down, color: Colors.white),
+                style: const TextStyle(color: Colors.white),
+                underline: const SizedBox(),
+                items: _devices.map((device) {
+                  return DropdownMenuItem<int>(
+                    value: device['id'] as int,
+                    child: Text(
+                      device['nom'] as String,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  );
+                }).toList(),
+                onChanged: (value) {
+                  if (value != null) {
+                    setState(() {
+                      _selectedDeviceId = value;
+                    });
+                    _reload();
+                  }
+                },
+              ),
+            ),
+          const UserInitialAvatar(),
+        ],
       ),
       body: FutureBuilder<void>(
         future: _loadFuture,
@@ -90,6 +168,12 @@ class _HomePageState extends State<HomePage> {
                   expense: _expenseTotal,
                   balance: balance,
                   currency: _currency,
+                  deviceName: _devices.isNotEmpty && _selectedDeviceId != null
+                      ? _devices.firstWhere(
+                              (device) => device['id'] == _selectedDeviceId,
+                            )['nom']
+                            as String?
+                      : null,
                 ),
                 const SizedBox(height: 20),
 
@@ -200,12 +284,14 @@ class _BalanceCard extends StatelessWidget {
     required this.expense,
     required this.balance,
     required this.currency,
+    this.deviceName,
   });
 
   final double income;
   final double expense;
   final double balance;
   final NumberFormat currency;
+  final String? deviceName;
 
   @override
   Widget build(BuildContext context) {
@@ -232,18 +318,46 @@ class _BalanceCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Row(
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Icon(Icons.account_balance_wallet, color: Colors.white, size: 28),
-              SizedBox(width: 10),
-              Text(
-                'Solde',
-                style: TextStyle(
-                  color: Colors.white,
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                ),
+              const Row(
+                children: [
+                  Icon(
+                    Icons.account_balance_wallet,
+                    color: Colors.white,
+                    size: 28,
+                  ),
+                  SizedBox(width: 10),
+                  Text(
+                    'Solde',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ],
               ),
+              if (deviceName != null)
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 6,
+                  ),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withOpacity(0.2),
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  child: Text(
+                    deviceName!,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 14,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
             ],
           ),
           const SizedBox(height: 12),
@@ -255,10 +369,10 @@ class _BalanceCard extends StatelessWidget {
               fontWeight: FontWeight.bold,
             ),
           ),
-          const Text(
-            "CDF",
-            style: TextStyle(color: Colors.white, fontSize: 20),
-          ),
+          // const Text(
+          //   "CDF",
+          //   style: TextStyle(color: Colors.white, fontSize: 20),
+          // ),
           const SizedBox(height: 16),
           Row(
             children: [
@@ -393,14 +507,18 @@ class _AddTransactionSheetState extends State<_AddTransactionSheet> {
   final _amountController = TextEditingController();
   String? _selectedCategory;
   final _noteController = TextEditingController();
+  int? _selectedDeviceId;
 
   List<String> _categories = [];
+  List<Map<String, dynamic>> _devices = [];
   bool _isLoadingCategories = true;
+  bool _isLoadingDevices = true;
 
   @override
   void initState() {
     super.initState();
     _loadCategories();
+    _loadDevices();
   }
 
   Future<void> _loadCategories() async {
@@ -423,6 +541,23 @@ class _AddTransactionSheetState extends State<_AddTransactionSheet> {
     }
   }
 
+  Future<void> _loadDevices() async {
+    try {
+      final devices = await _databaseService.getAllDevices();
+      setState(() {
+        _devices = devices;
+        _isLoadingDevices = false;
+        if (_selectedDeviceId == null && _devices.isNotEmpty) {
+          _selectedDeviceId = _devices.first['id'] as int;
+        }
+      });
+    } catch (e) {
+      setState(() {
+        _isLoadingDevices = false;
+      });
+    }
+  }
+
   @override
   void dispose() {
     _amountController.dispose();
@@ -441,6 +576,7 @@ class _AddTransactionSheetState extends State<_AddTransactionSheet> {
       category: _selectedCategory?.trim() ?? 'Général',
       note: _noteController.text.trim(),
       createdAt: DateTime.now(),
+      deviceId: _selectedDeviceId,
     );
 
     Navigator.of(context).pop(tx);
@@ -554,6 +690,34 @@ class _AddTransactionSheetState extends State<_AddTransactionSheet> {
                             validator: (value) {
                               if (value == null || value.trim().isEmpty) {
                                 return 'Catégorie obligatoire';
+                              }
+                              return null;
+                            },
+                          ),
+                    const SizedBox(height: 12),
+                    _isLoadingDevices
+                        ? const CircularProgressIndicator()
+                        : DropdownButtonFormField<int>(
+                            initialValue: _selectedDeviceId,
+                            decoration: const InputDecoration(
+                              labelText: 'Device',
+                              border: OutlineInputBorder(),
+                              prefixIcon: Icon(Icons.devices),
+                            ),
+                            items: _devices.map((device) {
+                              return DropdownMenuItem(
+                                value: device['id'] as int,
+                                child: Text(device['nom'] as String),
+                              );
+                            }).toList(),
+                            onChanged: (value) {
+                              setState(() {
+                                _selectedDeviceId = value;
+                              });
+                            },
+                            validator: (value) {
+                              if (value == null) {
+                                return 'Device obligatoire';
                               }
                               return null;
                             },

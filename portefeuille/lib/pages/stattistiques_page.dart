@@ -18,19 +18,52 @@ class _StatsPageState extends State<StatsPage> {
   double expense = 0;
   Map<String, double> _categoryTotals = {};
   bool _isLoading = true;
+  int? _selectedDeviceId;
+  List<Map<String, dynamic>> _devices = [];
+  bool _isLoadingDevices = true;
   final DatabaseService _databaseService = DatabaseService();
   final formatter = NumberFormat('#,###', 'fr_FR');
 
   @override
   void initState() {
     super.initState();
-    _load();
+    _loadData();
+  }
+
+  Future<void> _loadData() async {
+    await _loadDevices();
+    await _load();
+  }
+
+  Future<void> _loadDevices() async {
+    try {
+      final devices = await _databaseService.getAllDevices();
+      if (mounted) {
+        setState(() {
+          _devices = devices;
+          _isLoadingDevices = false;
+          if (_selectedDeviceId == null && _devices.isNotEmpty) {
+            _selectedDeviceId = _devices.first['id'] as int;
+          }
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _isLoadingDevices = false;
+        });
+      }
+    }
   }
 
   Future<void> _load() async {
     try {
-      final totals = await _databaseService.getTotals();
-      final transactionsData = await _databaseService.getAllTransactions();
+      final totals = await _databaseService.getTotals(
+        deviceId: _selectedDeviceId,
+      );
+      final transactionsData = await _databaseService.getAllTransactions(
+        deviceId: _selectedDeviceId,
+      );
 
       // Calculer les totaux par catégorie directement depuis les données brutes
       final categoryTotals = <String, double>{};
@@ -66,7 +99,54 @@ class _StatsPageState extends State<StatsPage> {
         ),
         backgroundColor: isDarkMode ? Colors.grey[900] : Colors.teal,
         elevation: 0,
-        actions: const [UserInitialAvatar()],
+        actions: [
+          if (_isLoadingDevices)
+            const Padding(
+              padding: EdgeInsets.all(16.0),
+              child: SizedBox(
+                width: 20,
+                height: 20,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2,
+                  valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                ),
+              ),
+            )
+          else if (_devices.isNotEmpty)
+            Padding(
+              padding: const EdgeInsets.only(right: 16.0),
+              child: DropdownButton<int>(
+                value: _selectedDeviceId,
+                dropdownColor: isDarkMode
+                    ? Colors.grey[800]
+                    : Colors.teal.shade700,
+                icon: const Icon(Icons.arrow_drop_down, color: Colors.white),
+                style: const TextStyle(color: Colors.white),
+                underline: const SizedBox(),
+                items: _devices.map((device) {
+                  return DropdownMenuItem<int>(
+                    value: device['id'] as int,
+                    child: Text(
+                      device['nom'] as String,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  );
+                }).toList(),
+                onChanged: (value) {
+                  if (value != null) {
+                    setState(() {
+                      _selectedDeviceId = value;
+                    });
+                    _load();
+                  }
+                },
+              ),
+            ),
+          const UserInitialAvatar(),
+        ],
       ),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
@@ -90,6 +170,14 @@ class _StatsPageState extends State<StatsPage> {
                           amount: income,
                           color: Colors.green,
                           icon: Icons.trending_up,
+                          deviceName:
+                              _devices.isNotEmpty && _selectedDeviceId != null
+                              ? _devices.firstWhere(
+                                      (device) =>
+                                          device['id'] == _selectedDeviceId,
+                                    )['nom']
+                                    as String?
+                              : null,
                         ),
                       ),
                       const SizedBox(width: 16),
@@ -99,13 +187,29 @@ class _StatsPageState extends State<StatsPage> {
                           amount: expense,
                           color: Colors.red,
                           icon: Icons.trending_down,
+                          deviceName:
+                              _devices.isNotEmpty && _selectedDeviceId != null
+                              ? _devices.firstWhere(
+                                      (device) =>
+                                          device['id'] == _selectedDeviceId,
+                                    )['nom']
+                                    as String?
+                              : null,
                         ),
                       ),
                     ],
                   ),
                   const SizedBox(height: 24),
                   // Solde
-                  _BalanceCard(balance: income - expense),
+                  _BalanceCard(
+                    balance: income - expense,
+                    deviceName: _devices.isNotEmpty && _selectedDeviceId != null
+                        ? _devices.firstWhere(
+                                (device) => device['id'] == _selectedDeviceId,
+                              )['nom']
+                              as String?
+                        : null,
+                  ),
                   const SizedBox(height: 24),
                   // Graphiques
                   Column(
@@ -136,12 +240,14 @@ class _SummaryCard extends StatelessWidget {
     required this.amount,
     required this.color,
     required this.icon,
+    this.deviceName,
   });
 
   final String title;
   final double amount;
   final Color color;
   final IconData icon;
+  final String? deviceName;
 
   @override
   Widget build(BuildContext context) {
@@ -153,22 +259,46 @@ class _SummaryCard extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Icon(icon, color: color, size: 24),
-                const SizedBox(width: 12),
-                Text(
-                  title,
-                  style: TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w600,
-                    color: Colors.grey[600],
-                  ),
+                Row(
+                  children: [
+                    Icon(icon, color: color, size: 24),
+                    const SizedBox(width: 12),
+                    Text(
+                      title,
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                        color: Colors.grey[600],
+                      ),
+                    ),
+                  ],
                 ),
+                if (deviceName != null)
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 4,
+                    ),
+                    decoration: BoxDecoration(
+                      color: color.withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Text(
+                      deviceName!,
+                      style: TextStyle(
+                        fontSize: 10,
+                        fontWeight: FontWeight.bold,
+                        color: color,
+                      ),
+                    ),
+                  ),
               ],
             ),
             const SizedBox(height: 8),
             Text(
-              NumberFormat.currency(symbol: 'FC ').format(amount),
+              NumberFormat.currency(symbol: '').format(amount),
               style: TextStyle(
                 fontSize: 20,
                 fontWeight: FontWeight.bold,
@@ -184,9 +314,10 @@ class _SummaryCard extends StatelessWidget {
 }
 
 class _BalanceCard extends StatelessWidget {
-  const _BalanceCard({required this.balance});
+  const _BalanceCard({required this.balance, this.deviceName});
 
   final double balance;
+  final String? deviceName;
 
   @override
   Widget build(BuildContext context) {
@@ -199,26 +330,51 @@ class _BalanceCard extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Icon(
-                  isPositive ? Icons.account_balance_wallet : Icons.warning,
-                  color: isPositive ? Colors.blue : Colors.orange,
-                  size: 24,
+                Row(
+                  children: [
+                    Icon(
+                      isPositive ? Icons.account_balance_wallet : Icons.warning,
+                      color: isPositive ? Colors.blue : Colors.orange,
+                      size: 24,
+                    ),
+                    const SizedBox(width: 12),
+                    Text(
+                      'Solde',
+                      style: TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                        color: Colors.grey[600],
+                      ),
+                    ),
+                  ],
                 ),
-                const SizedBox(width: 12),
-                Text(
-                  'Solde',
-                  style: TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w600,
-                    color: Colors.grey[600],
+                if (deviceName != null)
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 4,
+                    ),
+                    decoration: BoxDecoration(
+                      color: (isPositive ? Colors.blue : Colors.orange)
+                          .withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Text(
+                      deviceName!,
+                      style: TextStyle(
+                        fontSize: 10,
+                        fontWeight: FontWeight.bold,
+                        color: isPositive ? Colors.blue : Colors.orange,
+                      ),
+                    ),
                   ),
-                ),
               ],
             ),
             const SizedBox(height: 8),
             Text(
-              NumberFormat.currency(symbol: 'FC ').format(balance),
+              NumberFormat.currency(symbol: '').format(balance),
               style: TextStyle(
                 fontSize: 24,
                 fontWeight: FontWeight.bold,

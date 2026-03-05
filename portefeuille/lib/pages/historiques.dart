@@ -16,22 +16,55 @@ class HistoryPage extends StatefulWidget {
 }
 
 class _HistoryPageState extends State<HistoryPage> {
-  late Future<List<FinanceTransaction>> _futureTransactions;
+  Future<List<FinanceTransaction>> _futureTransactions = Future.value([]);
   final _currency = NumberFormat.currency(symbol: '');
+  final DatabaseService _databaseService = DatabaseService();
 
   _HistoryTypeFilter _typeFilter = _HistoryTypeFilter.all;
   String _categoryFilter = 'Toutes';
+  int? _selectedDeviceId;
+  List<Map<String, dynamic>> _devices = [];
+  bool _isLoadingDevices = true;
 
   @override
   void initState() {
     super.initState();
+    _loadData();
+  }
+
+  Future<void> _loadData() async {
+    await _loadDevices();
     _loadTransactions();
   }
 
+  Future<void> _loadDevices() async {
+    try {
+      final devices = await _databaseService.getAllDevices();
+      if (mounted) {
+        setState(() {
+          _devices = devices;
+          _isLoadingDevices = false;
+          if (_selectedDeviceId == null && _devices.isNotEmpty) {
+            _selectedDeviceId = _devices.first['id'] as int;
+          }
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _isLoadingDevices = false;
+        });
+      }
+    }
+  }
+
   void _loadTransactions() {
-    _futureTransactions = DatabaseService().getAllTransactions().then(
-      (maps) => maps.map((map) => FinanceTransaction.fromDbMap(map)).toList(),
-    );
+    _futureTransactions = _databaseService
+        .getAllTransactions(deviceId: _selectedDeviceId)
+        .then(
+          (maps) =>
+              maps.map((map) => FinanceTransaction.fromDbMap(map)).toList(),
+        );
   }
 
   Future<void> _refresh() async {
@@ -51,7 +84,54 @@ class _HistoryPageState extends State<HistoryPage> {
         ),
         backgroundColor: isDarkMode ? Colors.grey[900] : Colors.teal,
         elevation: 0,
-        actions: const [UserInitialAvatar()],
+        actions: [
+          if (_isLoadingDevices)
+            const Padding(
+              padding: EdgeInsets.all(16.0),
+              child: SizedBox(
+                width: 20,
+                height: 20,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2,
+                  valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                ),
+              ),
+            )
+          else if (_devices.isNotEmpty)
+            Padding(
+              padding: const EdgeInsets.only(right: 16.0),
+              child: DropdownButton<int>(
+                value: _selectedDeviceId,
+                dropdownColor: isDarkMode
+                    ? Colors.grey[800]
+                    : Colors.teal.shade700,
+                icon: const Icon(Icons.arrow_drop_down, color: Colors.white),
+                style: const TextStyle(color: Colors.white),
+                underline: const SizedBox(),
+                items: _devices.map((device) {
+                  return DropdownMenuItem<int>(
+                    value: device['id'] as int,
+                    child: Text(
+                      device['nom'] as String,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  );
+                }).toList(),
+                onChanged: (value) {
+                  if (value != null) {
+                    setState(() {
+                      _selectedDeviceId = value;
+                    });
+                    _loadTransactions();
+                  }
+                },
+              ),
+            ),
+          const UserInitialAvatar(),
+        ],
       ),
       body: FutureBuilder<List<FinanceTransaction>>(
         future: _futureTransactions,

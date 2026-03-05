@@ -8,6 +8,7 @@ class FinanceTransaction {
     required this.category,
     required this.note,
     required this.createdAt,
+    this.deviceId,
   });
 
   final int? id;
@@ -16,6 +17,7 @@ class FinanceTransaction {
   final String category;
   final String note;
   final DateTime createdAt;
+  final int? deviceId;
 
   FinanceTransaction copyWith({
     int? id,
@@ -24,6 +26,7 @@ class FinanceTransaction {
     String? category,
     String? note,
     DateTime? createdAt,
+    int? deviceId,
   }) {
     return FinanceTransaction(
       id: id ?? this.id,
@@ -32,6 +35,7 @@ class FinanceTransaction {
       category: category ?? this.category,
       note: note ?? this.note,
       createdAt: createdAt ?? this.createdAt,
+      deviceId: deviceId ?? this.deviceId,
     );
   }
 
@@ -68,6 +72,7 @@ class FinanceTransaction {
       'amount': amount,
       'category': category,
       'note': note,
+      if (deviceId != null) 'device_id': deviceId,
       'created_at': createdAt.millisecondsSinceEpoch,
     };
   }
@@ -79,6 +84,7 @@ class FinanceTransaction {
       amount: (map['amount'] as num?)?.toDouble() ?? 0.0,
       category: (map['category'] as String?)?.trim() ?? '',
       note: (map['note'] as String?)?.trim() ?? '',
+      deviceId: map['device_id'] as int?,
       createdAt: map['created_at'] != null
           ? DateTime.fromMillisecondsSinceEpoch(map['created_at'] as int)
           : DateTime.now(),

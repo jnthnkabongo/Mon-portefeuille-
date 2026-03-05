@@ -100,7 +100,9 @@ class DatabaseService {
         amount REAL NOT NULL,
         category TEXT NOT NULL,
         note TEXT NOT NULL,
-        created_at INTEGER NOT NULL
+        device_id INTEGER,
+        created_at INTEGER NOT NULL,
+        FOREIGN KEY (device_id) REFERENCES devices (id)
       )
     ''');
 
@@ -145,20 +147,23 @@ class DatabaseService {
     if ((devicesCount.first['count'] as int) == 0) {
       await db.insert('devices', {'nom': '\$'});
       await db.insert('devices', {'nom': 'FC'});
-    } else {
-      // Mettre à jour les devices existants avec les nouveaux noms
-      // await db.update(
-      //   'devices',
-      //   {'nom': '\$'},
-      //   where: 'id = ?',
-      //   whereArgs: [1],
-      // );
-      // await db.update(
-      //   'devices',
-      //   {'nom': 'FC'},
-      //   where: 'id = ?',
-      //   whereArgs: [2],
-      // );
+    }
+
+    //Verifier si les categories existent deja
+    final categoriesCount = await db.rawQuery(
+      'SELECT COUNT(*) as count FROM categories',
+    );
+    if ((categoriesCount.first['count'] as int) == 0) {
+      await db.insert('categories', {
+        'name': 'salaire',
+        'type': 'income',
+        'created_at': DateTime.now().millisecondsSinceEpoch,
+      });
+      await db.insert('categories', {
+        'name': 'transport',
+        'type': 'expense',
+        'created_at': DateTime.now().millisecondsSinceEpoch,
+      });
     }
 
     // Vérifier si les motifs existent déjà
@@ -269,8 +274,16 @@ class DatabaseService {
     return await db.insert('transactions', transaction);
   }
 
-  Future<List<Map<String, dynamic>>> getAllTransactions() async {
+  Future<List<Map<String, dynamic>>> getAllTransactions({int? deviceId}) async {
     final db = await database;
+    if (deviceId != null) {
+      return await db.query(
+        'transactions',
+        where: 'device_id = ?',
+        whereArgs: [deviceId],
+        orderBy: 'created_at DESC',
+      );
+    }
     return await db.query('transactions', orderBy: 'created_at DESC');
   }
 
@@ -279,11 +292,19 @@ class DatabaseService {
     return await db.delete('transactions', where: 'id = ?', whereArgs: [id]);
   }
 
-  Future<Map<String, dynamic>> getTotals() async {
+  Future<Map<String, dynamic>> getTotals({int? deviceId}) async {
     final db = await database;
-    final rows = await db.rawQuery(
-      'SELECT type, SUM(amount) AS total FROM transactions GROUP BY type',
-    );
+    String query = 'SELECT type, SUM(amount) AS total FROM transactions';
+    List<dynamic> args = [];
+
+    if (deviceId != null) {
+      query += ' WHERE device_id = ?';
+      args.add(deviceId);
+    }
+
+    query += ' GROUP BY type';
+
+    final rows = await db.rawQuery(query, args);
 
     double income = 0;
     double expense = 0;
@@ -357,14 +378,12 @@ class DatabaseService {
     return await db.insert('epargne', epargne);
   }
 
-  Future<List<Map<String, dynamic>>> getAllEpargne() async {
+  Future<List<Map<String, dynamic>>> getAllEpargne({int? deviceId}) async {
     final db = await database;
-    return await db.rawQuery('''
+    String query = '''
       SELECT 
         e.id,
-        e.device_id,
         e.montant,
-        e.motif_epargne_id,
         e.libelle,
         e.created_at,
         d.nom as device_nom,
@@ -373,28 +392,49 @@ class DatabaseService {
       FROM epargne e
       INNER JOIN devices d ON e.device_id = d.id
       INNER JOIN motif_epargne m ON e.motif_epargne_id = m.id
-      ORDER BY e.created_at DESC
-    ''');
+    ''';
+
+    if (deviceId != null) {
+      query += ' WHERE e.device_id = ?';
+      return await db.rawQuery(query, [deviceId]);
+    }
+
+    query += ' ORDER BY e.created_at DESC';
+    return await db.rawQuery(query);
   }
 
-  //Total epargne avec la device Dollars
-  Future<double> getTotalEpargne() async {
+  //Total epargne avec device spécifique ou toutes
+  Future<double> getTotalEpargne({int? deviceId}) async {
     final db = await database;
-    final result = await db.rawQuery(
-      'SELECT SUM(montant) as total FROM epargne where device_id = 2',
-    );
-    final total = (result.first['total'] as num?)?.toDouble() ?? 0.0;
-    return total;
+    String query = 'SELECT SUM(montant) as total FROM epargne';
+
+    if (deviceId != null) {
+      query += ' WHERE device_id = ?';
+      final result = await db.rawQuery(query, [deviceId]);
+      return (result.first['total'] as num?)?.toDouble() ?? 0.0;
+    }
+
+    // Si aucun device spécifié, retourner le total des dollars (device_id = 2)
+    query += ' WHERE device_id = 2';
+    final result = await db.rawQuery(query);
+    return (result.first['total'] as num?)?.toDouble() ?? 0.0;
   }
 
-  //Total epargne avec la device Francs
-  Future<double> getTotalEpargneFranc() async {
+  //Total epargne avec device spécifique ou toutes
+  Future<double> getTotalEpargneFranc({int? deviceId}) async {
     final db = await database;
-    final result = await db.rawQuery(
-      'SELECT SUM(montant) as total FROM epargne where device_id = 1',
-    );
-    final totalFranc = (result.first['total'] as num?)?.toDouble() ?? 0.0;
-    return totalFranc;
+    String query = 'SELECT SUM(montant) as total FROM epargne';
+
+    if (deviceId != null) {
+      query += ' WHERE device_id = ?';
+      final result = await db.rawQuery(query, [deviceId]);
+      return (result.first['total'] as num?)?.toDouble() ?? 0.0;
+    }
+
+    // Si aucun device spécifié, retourner le total des francs (device_id = 1)
+    query += ' WHERE device_id = 1';
+    final result = await db.rawQuery(query);
+    return (result.first['total'] as num?)?.toDouble() ?? 0.0;
   }
 
   Future<int> deleteEpargne(int id) async {

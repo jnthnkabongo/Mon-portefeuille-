@@ -48,13 +48,17 @@ class _SavingsPageState extends State<SavingsPage> {
   Future<void> _loadSavings() async {
     try {
       final [savings, devices, motifs] = await Future.wait([
-        _databaseService.getAllEpargne(),
+        _databaseService.getAllEpargne(deviceId: _selectedDeviceId),
         _databaseService.getAllDevices(),
         _databaseService.getAllMotifsEpargne(),
       ]);
 
-      double total = await _databaseService.getTotalEpargne();
-      double totalFranc = await _databaseService.getTotalEpargneFranc();
+      double total = await _databaseService.getTotalEpargne(
+        deviceId: _selectedDeviceId,
+      );
+      double totalFranc = await _databaseService.getTotalEpargneFranc(
+        deviceId: _selectedDeviceId,
+      );
 
       setState(() {
         _totalSavings = total;
@@ -419,6 +423,34 @@ class _SavingsPageState extends State<SavingsPage> {
         ),
         centerTitle: true,
         actions: [
+          if (_devices.isNotEmpty)
+            Padding(
+              padding: const EdgeInsets.only(right: 16.0),
+              child: DropdownButton<int>(
+                value: _selectedDeviceId,
+                dropdownColor: Colors.teal.shade700,
+                icon: const Icon(Icons.arrow_drop_down, color: Colors.white),
+                style: const TextStyle(color: Colors.white),
+                underline: const SizedBox(),
+                items: _devices.map((device) {
+                  return DropdownMenuItem<int>(
+                    value: device['id'] as int,
+                    child: Text(
+                      device['nom'] as String,
+                      style: const TextStyle(color: Colors.white),
+                    ),
+                  );
+                }).toList(),
+                onChanged: (value) {
+                  if (value != null) {
+                    setState(() {
+                      _selectedDeviceId = value;
+                    });
+                    _loadSavings();
+                  }
+                },
+              ),
+            ),
           IconButton(
             onPressed: () {
               Navigator.push(
