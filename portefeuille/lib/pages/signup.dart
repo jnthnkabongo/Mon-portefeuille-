@@ -127,7 +127,7 @@ class _SignupPageState extends State<SignupPage> {
         if (enable == true) {
           await prefs.setBool('biometricEnabled', true);
         } else {
-          print('❌ Biométrie désactivée');
+          //print('❌ Biométrie désactivée');
         }
       }
 

@@ -337,7 +337,7 @@ class _SavingsPageState extends State<SavingsPage> {
                 controller: _amountController,
                 keyboardType: TextInputType.number,
                 decoration: InputDecoration(
-                  labelText: 'Montant (FC)',
+                  labelText: 'Montant',
                   border: OutlineInputBorder(),
                   prefixIcon: Icon(Icons.money, color: Colors.teal),
                 ),
@@ -451,21 +451,6 @@ class _SavingsPageState extends State<SavingsPage> {
                 },
               ),
             ),
-          IconButton(
-            onPressed: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (context) => const MotifEpargnePage(),
-                ),
-              );
-            },
-            icon: const Icon(Icons.category, color: Colors.white),
-          ),
-          IconButton(
-            onPressed: _showAddSavingsDialog,
-            icon: const Icon(Icons.add, color: Colors.white),
-          ),
         ],
       ),
       body: _isLoading
@@ -533,49 +518,27 @@ class _SavingsPageState extends State<SavingsPage> {
                                             CrossAxisAlignment.start,
                                         children: [
                                           Text(
-                                            'FC ${formatter.format(_totalSavings)}',
+                                            '${formatter.format(_totalSavings)}',
                                             style: const TextStyle(
                                               color: Colors.white,
                                               fontSize: 25,
                                               fontWeight: FontWeight.bold,
                                             ),
                                           ),
-                                          const Text(
-                                            'FC',
-                                            style: TextStyle(
-                                              color: Colors.white70,
-                                              fontSize: 14,
+                                          if (_devices.isNotEmpty &&
+                                              _selectedDeviceId != null)
+                                            Text(
+                                              _devices.firstWhere(
+                                                    (device) =>
+                                                        device['id'] ==
+                                                        _selectedDeviceId,
+                                                  )['nom']
+                                                  as String,
+                                              style: const TextStyle(
+                                                color: Colors.white70,
+                                                fontSize: 14,
+                                              ),
                                             ),
-                                          ),
-                                        ],
-                                      ),
-                                    ),
-                                    Container(
-                                      width: 1,
-                                      height: 40,
-                                      color: Colors.white30,
-                                    ),
-                                    const SizedBox(width: 16),
-                                    Expanded(
-                                      child: Column(
-                                        crossAxisAlignment:
-                                            CrossAxisAlignment.start,
-                                        children: [
-                                          Text(
-                                            '\$ ${formatter.format(_totalSavingsDollars)}',
-                                            style: const TextStyle(
-                                              color: Colors.white,
-                                              fontSize: 25,
-                                              fontWeight: FontWeight.bold,
-                                            ),
-                                          ),
-                                          const Text(
-                                            'USD ',
-                                            style: TextStyle(
-                                              color: Colors.white70,
-                                              fontSize: 14,
-                                            ),
-                                          ),
                                         ],
                                       ),
                                     ),
@@ -606,29 +569,6 @@ class _SavingsPageState extends State<SavingsPage> {
                                 ),
                               ),
                               const SizedBox(width: 12),
-                              // IconButton(
-                              //   onPressed: () {
-                              //     Navigator.push(
-                              //       context,
-                              //       MaterialPageRoute(
-                              //         builder: (context) =>
-                              //             const MotifEpargnePage(),
-                              //       ),
-                              //     );
-                              //   },
-                              //   icon: const Icon(Icons.category),
-                              //   style: IconButton.styleFrom(
-                              //     backgroundColor: Colors.white,
-                              //     foregroundColor: Colors.teal,
-                              //     padding: const EdgeInsets.all(12),
-                              //     shape: RoundedRectangleBorder(
-                              //       borderRadius: BorderRadius.circular(8),
-                              //       side: BorderSide(
-                              //         color: Colors.teal.shade200,
-                              //       ),
-                              //     ),
-                              //   ),
-                              // ),
                             ],
                           ),
                         ],
@@ -760,7 +700,7 @@ class _SavingsPageState extends State<SavingsPage> {
                                         ),
                                       ),
                                       Text(
-                                        '${savings['montant']} FC',
+                                        '${savings['montant']} - ${savings['device_nom']}',
                                         style: const TextStyle(
                                           fontWeight: FontWeight.bold,
                                           color: Colors.teal,

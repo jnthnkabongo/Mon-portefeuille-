@@ -58,9 +58,9 @@ class FinanceTransaction {
         return TransactionType.expense;
       default:
         // Si la valeur n'est pas reconnue, on considère que c'est une dépense par défaut
-        print(
-          'Type de transaction non reconnu: "$value", utilisation de expense par défaut',
-        );
+        // print(
+        //   'Type de transaction non reconnu: "$value", utilisation de expense par défaut',
+        // );
         return TransactionType.expense;
     }
   }

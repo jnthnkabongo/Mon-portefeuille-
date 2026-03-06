@@ -47,7 +47,7 @@ class _DevicesPageState extends State<DevicesPage> {
 
   Future<void> _addDevice() async {
     final deviceName = _deviceController.text.trim();
-    
+
     if (deviceName.isEmpty) {
       _showMessage('Veuillez entrer un nom de device', Colors.orange);
       return;
@@ -65,15 +65,15 @@ class _DevicesPageState extends State<DevicesPage> {
 
   Future<void> _updateDevice(Map<String, dynamic> device) async {
     final controller = TextEditingController(text: device['nom'] as String);
-    
+
     return showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Modifier le device'),
+        title: const Text('Modifier le devise'),
         content: TextField(
           controller: controller,
           decoration: const InputDecoration(
-            labelText: 'Nom du device',
+            labelText: 'Nom du devise',
             border: OutlineInputBorder(),
             prefixIcon: Icon(Icons.devices),
           ),
@@ -89,12 +89,17 @@ class _DevicesPageState extends State<DevicesPage> {
               final newName = controller.text.trim();
               if (newName.isNotEmpty && newName != device['nom']) {
                 try {
-                  await _databaseService.updateDevice(device['id'] as int, {'nom': newName});
+                  await _databaseService.updateDevice(device['id'] as int, {
+                    'nom': newName,
+                  });
                   await _loadDevices();
                   Navigator.pop(context);
-                  _showMessage('Device renommé avec succès', Colors.green);
+                  _showMessage('Devise renommé avec succès', Colors.green);
                 } catch (e) {
-                  _showMessage('Erreur lors de la modification: $e', Colors.red);
+                  _showMessage(
+                    'Erreur lors de la modification: $e',
+                    Colors.red,
+                  );
                 }
               } else {
                 Navigator.pop(context);
@@ -111,9 +116,9 @@ class _DevicesPageState extends State<DevicesPage> {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Supprimer le device'),
+        title: const Text('Supprimer le devise'),
         content: Text(
-          'Êtes-vous sûr de vouloir supprimer le device "${device['nom']}" ?\n\nAttention : cette action affectera toutes les transactions associées.',
+          'Êtes-vous sûr de vouloir supprimer le devise "${device['nom']}" ?\n\nAttention : cette action affectera toutes les transactions associées.',
         ),
         actions: [
           TextButton(
@@ -141,12 +146,9 @@ class _DevicesPageState extends State<DevicesPage> {
   }
 
   void _showMessage(String message, Color color) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(message),
-        backgroundColor: color,
-      ),
-    );
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(message), backgroundColor: color));
   }
 
   @override
@@ -157,7 +159,7 @@ class _DevicesPageState extends State<DevicesPage> {
         backgroundColor: Colors.teal,
         elevation: 0,
         title: const Text(
-          "Devices",
+          "Devises",
           style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white),
         ),
         centerTitle: true,
@@ -188,7 +190,7 @@ class _DevicesPageState extends State<DevicesPage> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         const Text(
-                          'Ajouter un device',
+                          'Ajouter un devise',
                           style: TextStyle(
                             fontSize: 18,
                             fontWeight: FontWeight.bold,
@@ -202,7 +204,7 @@ class _DevicesPageState extends State<DevicesPage> {
                               child: TextField(
                                 controller: _deviceController,
                                 decoration: const InputDecoration(
-                                  labelText: 'Nom du device',
+                                  labelText: 'Nom du devise',
                                   border: OutlineInputBorder(),
                                   prefixIcon: Icon(Icons.devices),
                                 ),
@@ -237,7 +239,7 @@ class _DevicesPageState extends State<DevicesPage> {
                                 ),
                                 SizedBox(height: 16),
                                 Text(
-                                  'Aucun device disponible',
+                                  'Aucun devise disponible',
                                   style: TextStyle(
                                     fontSize: 18,
                                     color: Colors.grey,
@@ -245,7 +247,7 @@ class _DevicesPageState extends State<DevicesPage> {
                                 ),
                                 SizedBox(height: 8),
                                 Text(
-                                  'Ajoutez votre premier device ci-dessus',
+                                  'Ajoutez votre premier devise ci-dessus',
                                   style: TextStyle(
                                     fontSize: 14,
                                     color: Colors.grey,
@@ -306,12 +308,18 @@ class _DevicesPageState extends State<DevicesPage> {
                                     mainAxisSize: MainAxisSize.min,
                                     children: [
                                       IconButton(
-                                        icon: const Icon(Icons.edit, color: Colors.blue),
+                                        icon: const Icon(
+                                          Icons.edit,
+                                          color: Colors.blue,
+                                        ),
                                         onPressed: () => _updateDevice(device),
                                         tooltip: 'Modifier',
                                       ),
                                       IconButton(
-                                        icon: const Icon(Icons.delete, color: Colors.red),
+                                        icon: const Icon(
+                                          Icons.delete,
+                                          color: Colors.red,
+                                        ),
                                         onPressed: () => _deleteDevice(device),
                                         tooltip: 'Supprimer',
                                       ),

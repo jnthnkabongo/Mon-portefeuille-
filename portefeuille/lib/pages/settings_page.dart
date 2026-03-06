@@ -111,10 +111,10 @@ class _SettingsPageState extends State<SettingsPage> {
           ),
           const SizedBox(height: 16),
           _buildSectionCard(
-            title: "Devices",
+            title: "Devises",
             items: [
               SettingItem(
-                label: "Gérer les devices",
+                label: "Gérer les devises",
                 icon: Icons.devices,
                 onTap: () {
                   Navigator.push(
