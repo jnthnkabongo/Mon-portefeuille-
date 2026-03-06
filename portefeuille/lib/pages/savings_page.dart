@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'package:portefeuille/widgets/user_initial_avatar.dart';
 import '../services/database.dart';
 import 'motif_epargne_page.dart';
 
@@ -451,6 +452,7 @@ class _SavingsPageState extends State<SavingsPage> {
                 },
               ),
             ),
+          UserInitialAvatar(),
         ],
       ),
       body: _isLoading
@@ -687,7 +689,7 @@ class _SavingsPageState extends State<SavingsPage> {
                                                 ),
                                                 const SizedBox(width: 8),
                                                 Text(
-                                                  '${savings['motif_nom']} - ${savings['device_nom']}',
+                                                  '${savings['motif_nom']}',
                                                   style: TextStyle(
                                                     fontSize: 12,
                                                     color: Colors.grey[600],
