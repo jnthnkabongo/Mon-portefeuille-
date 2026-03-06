@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:portefeuille/pages/main_page.dart';
+import 'package:portefeuille/pages/reset_password.dart';
 import 'package:portefeuille/pages/signup.dart';
 import 'package:portefeuille/services/database.dart';
 import 'package:portefeuille/services/service.dart';
@@ -277,6 +278,28 @@ class _LoginPageState extends State<LoginPage> {
                     ),
                   ],
                 ),
+
+              const SizedBox(height: 20),
+
+              //Lien vers Signup
+              GestureDetector(
+                onTap: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => const ResetPasswordPage(),
+                    ),
+                  );
+                },
+                child: const Text(
+                  "Mot de passe oublier ? Réinitialiser votre mot de passe",
+                  style: TextStyle(
+                    color: Colors.teal,
+                    fontWeight: FontWeight.bold,
+                    decoration: TextDecoration.underline,
+                  ),
+                ),
+              ),
             ],
           ),
         ),
