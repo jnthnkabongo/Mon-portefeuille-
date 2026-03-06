@@ -4,6 +4,7 @@ import '../services/database.dart';
 import 'categories_page.dart';
 import 'savings_page.dart';
 import 'motif_epargne_page.dart';
+import 'devices_page.dart';
 
 class SettingsPage extends StatefulWidget {
   const SettingsPage({super.key});
@@ -106,6 +107,24 @@ class _SettingsPageState extends State<SettingsPage> {
             items: const [
               SettingItem(label: "Cloud Sync", icon: Icons.cloud_upload),
               SettingItem(label: "Exporter PDF", icon: Icons.picture_as_pdf),
+            ],
+          ),
+          const SizedBox(height: 16),
+          _buildSectionCard(
+            title: "Devices",
+            items: [
+              SettingItem(
+                label: "Gérer les devices",
+                icon: Icons.devices,
+                onTap: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => const DevicesPage(),
+                    ),
+                  );
+                },
+              ),
             ],
           ),
           const SizedBox(height: 16),
