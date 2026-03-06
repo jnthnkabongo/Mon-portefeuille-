@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:portefeuille/pages/reset_password.dart';
 import '../widgets/user_initial_avatar.dart';
 import '../services/database.dart';
 import 'categories_page.dart';
@@ -93,11 +94,19 @@ class _SettingsPageState extends State<SettingsPage> {
           const SizedBox(height: 16),
           _buildSectionCard(
             title: "Sécurité",
-            items: const [
+            items: [
               SettingItem(label: "Changer mot de passe", icon: Icons.lock),
               SettingItem(
                 label: "Authentification biométrique",
                 icon: Icons.fingerprint,
+                onTap: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => const ResetPasswordPage(),
+                    ),
+                  );
+                },
               ),
             ],
           ),
