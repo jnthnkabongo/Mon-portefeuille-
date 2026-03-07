@@ -155,47 +155,7 @@ class _ProfilePageState extends State<ProfilePage> {
   }
 
   Widget _buildActionCards() {
-    return Column(
-      children: [
-        Row(
-          children: [
-            _ActionCard(
-              icon: Icons.settings,
-              label: "Paramètres",
-              color: Colors.teal,
-              onTap: () {},
-            ),
-            const SizedBox(width: 12),
-            _ActionCard(
-              icon: Icons.cloud_upload,
-              label: "Cloud Sync",
-              color: Colors.blue,
-              onTap: () {},
-            ),
-          ],
-        ),
-        const SizedBox(height: 12),
-        Row(
-          children: [
-            _ActionCard(
-              icon: Icons.picture_as_pdf,
-              label: "Export PDF",
-              color: Colors.redAccent,
-              onTap: () {},
-            ),
-            const SizedBox(width: 12),
-            _ActionCard(
-              icon: Icons.logout,
-              label: "Déconnexion",
-              color: Colors.orangeAccent,
-              onTap: logout,
-            ),
-          ],
-        ),
-        const SizedBox(height: 24),
-        _buildUsersSection(),
-      ],
-    );
+    return Column(children: [const SizedBox(height: 8), _buildUsersSection()]);
   }
 
   Widget _buildUsersSection() {

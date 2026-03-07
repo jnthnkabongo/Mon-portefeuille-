@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:portefeuille/pages/auth.dart';
 import 'package:portefeuille/pages/reset_password.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../widgets/user_initial_avatar.dart';
 import '../services/database.dart';
 import 'categories_page.dart';
@@ -65,6 +67,18 @@ class _SettingsPageState extends State<SettingsPage> {
         _isLoading = false;
       });
     }
+  }
+
+  Future<void> _logout() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.clear();
+
+    if (!mounted) return;
+
+    Navigator.of(context).pushAndRemoveUntil(
+      MaterialPageRoute(builder: (_) => const LoginPage()),
+      (route) => false,
+    );
   }
 
   @override
@@ -183,6 +197,30 @@ class _SettingsPageState extends State<SettingsPage> {
                 },
               ),
             ],
+          ),
+          SizedBox(height: 12),
+          SizedBox(
+            width: double.infinity,
+            height: 48,
+            child: ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.teal,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(10),
+                ),
+              ),
+              onPressed: () {
+                _logout();
+              },
+              child: const Text(
+                "Se déconnecter",
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.white,
+                ),
+              ),
+            ),
           ),
           const SizedBox(height: 90),
         ],
