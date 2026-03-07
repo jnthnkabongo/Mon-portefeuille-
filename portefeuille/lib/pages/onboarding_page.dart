@@ -14,7 +14,7 @@ class _OnboardingPageState extends State<OnboardingPage> {
 
   final List<OnboardingItem> _items = [
     OnboardingItem(
-      title: 'Bienvenue dans FinancePro',
+      title: 'Bienvenue dans Portefeuille',
       description:
           'Votre application de gestion financière personnelle pour suivre vos revenus, dépenses et épargnes.',
       icon: Icons.account_balance_wallet,
