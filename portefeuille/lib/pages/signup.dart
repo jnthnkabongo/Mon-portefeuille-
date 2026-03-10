@@ -264,33 +264,6 @@ class _SignupPageState extends State<SignupPage> {
                                 ),
                         ),
                       ),
-                      SizedBox(height: 12),
-                      SizedBox(
-                        width: double.infinity,
-                        height: 48,
-
-                        child: ElevatedButton(
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: Colors.teal,
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(10),
-                            ),
-                          ),
-                          onPressed: isLoading ? null : login,
-                          child: isLoading
-                              ? const CircularProgressIndicator(
-                                  color: Colors.white,
-                                )
-                              : const Text(
-                                  "Connexion",
-                                  style: TextStyle(
-                                    fontSize: 16,
-                                    fontWeight: FontWeight.bold,
-                                    color: Colors.white,
-                                  ),
-                                ),
-                        ),
-                      ),
                     ],
                   ),
                 ),
