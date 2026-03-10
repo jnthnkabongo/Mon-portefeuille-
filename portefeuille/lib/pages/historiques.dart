@@ -81,7 +81,6 @@ class _HistoryPageState extends State<HistoryPage>
   }
 
   void _loadTransactions() {
-    print('DEBUG: Loading transactions for both currencies');
 
     // Charger les transactions USD
     _usdTransactions = _databaseService
@@ -95,8 +94,6 @@ class _HistoryPageState extends State<HistoryPage>
             final currency = tx.currency.toUpperCase().trim();
             return currency == 'USD';
           }).toList();
-
-          print('DEBUG: USD transactions count: ${usdFiltered.length}');
           return usdFiltered;
         });
 
@@ -112,8 +109,6 @@ class _HistoryPageState extends State<HistoryPage>
             final currency = tx.currency.toUpperCase().trim();
             return currency == 'FC';
           }).toList();
-
-          print('DEBUG: FC transactions count: ${fcFiltered.length}');
           return fcFiltered;
         });
   }

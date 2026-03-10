@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:portefeuille/pages/statistiques_page_new.dart';
+import 'package:portefeuille/pages/statistiques_page.dart';
 import 'home_page.dart';
 import 'package:portefeuille/pages/historiques.dart';
 import 'profile_page.dart';
