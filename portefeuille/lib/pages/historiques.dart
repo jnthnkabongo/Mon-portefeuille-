@@ -15,21 +15,41 @@ class HistoryPage extends StatefulWidget {
   State<HistoryPage> createState() => _HistoryPageState();
 }
 
-class _HistoryPageState extends State<HistoryPage> {
-  Future<List<FinanceTransaction>> _futureTransactions = Future.value([]);
+class _HistoryPageState extends State<HistoryPage>
+    with SingleTickerProviderStateMixin {
+  TabController? _tabController;
+  Future<List<FinanceTransaction>> _usdTransactions = Future.value([]);
+  Future<List<FinanceTransaction>> _fcTransactions = Future.value([]);
   final _currency = NumberFormat.currency(symbol: '');
   final DatabaseService _databaseService = DatabaseService();
 
   _HistoryTypeFilter _typeFilter = _HistoryTypeFilter.all;
   String _categoryFilter = 'Toutes';
   int? _selectedDeviceId;
+  int? _usdSelectedDeviceId;
+  int? _fcSelectedDeviceId;
   List<Map<String, dynamic>> _devices = [];
   bool _isLoadingDevices = true;
 
   @override
   void initState() {
     super.initState();
+    _tabController = TabController(length: 2, vsync: this);
+    _tabController?.addListener(_onTabChanged);
     _loadData();
+  }
+
+  @override
+  void dispose() {
+    _tabController?.removeListener(_onTabChanged);
+    _tabController?.dispose();
+    super.dispose();
+  }
+
+  void _onTabChanged() {
+    if (mounted) {
+      _loadTransactions();
+    }
   }
 
   Future<void> _loadData() async {
@@ -46,6 +66,8 @@ class _HistoryPageState extends State<HistoryPage> {
           _isLoadingDevices = false;
           if (_selectedDeviceId == null && _devices.isNotEmpty) {
             _selectedDeviceId = _devices.first['id'] as int;
+            _usdSelectedDeviceId = _devices.first['id'] as int;
+            _fcSelectedDeviceId = _devices.first['id'] as int;
           }
         });
       }
@@ -59,22 +81,56 @@ class _HistoryPageState extends State<HistoryPage> {
   }
 
   void _loadTransactions() {
-    _futureTransactions = _databaseService
-        .getAllTransactions(deviceId: _selectedDeviceId)
-        .then(
-          (maps) =>
-              maps.map((map) => FinanceTransaction.fromDbMap(map)).toList(),
-        );
+    print('DEBUG: Loading transactions for both currencies');
+
+    // Charger les transactions USD
+    _usdTransactions = _databaseService
+        .getAllTransactions(deviceId: _usdSelectedDeviceId)
+        .then((maps) {
+          final allTransactions = maps
+              .map((map) => FinanceTransaction.fromDbMap(map))
+              .toList();
+
+          final usdFiltered = allTransactions.where((tx) {
+            final currency = tx.currency.toUpperCase().trim();
+            return currency == 'USD';
+          }).toList();
+
+          print('DEBUG: USD transactions count: ${usdFiltered.length}');
+          return usdFiltered;
+        });
+
+    // Charger les transactions FC
+    _fcTransactions = _databaseService
+        .getAllTransactions(deviceId: _fcSelectedDeviceId)
+        .then((maps) {
+          final allTransactions = maps
+              .map((map) => FinanceTransaction.fromDbMap(map))
+              .toList();
+
+          final fcFiltered = allTransactions.where((tx) {
+            final currency = tx.currency.toUpperCase().trim();
+            return currency == 'FC';
+          }).toList();
+
+          print('DEBUG: FC transactions count: ${fcFiltered.length}');
+          return fcFiltered;
+        });
   }
 
   Future<void> _refresh() async {
     setState(_loadTransactions);
-    await _futureTransactions;
+    await _usdTransactions;
+    await _fcTransactions;
   }
 
   @override
   Widget build(BuildContext context) {
     final isDarkMode = Provider.of<ThemeProvider>(context).isDarkMode;
+
+    if (_tabController == null) {
+      _tabController = TabController(length: 2, vsync: this);
+    }
 
     return Scaffold(
       appBar: AppBar(
@@ -84,247 +140,301 @@ class _HistoryPageState extends State<HistoryPage> {
         ),
         backgroundColor: isDarkMode ? Colors.grey[900] : Colors.teal,
         elevation: 0,
-        actions: [
-          if (_isLoadingDevices)
-            const Padding(
-              padding: EdgeInsets.all(16.0),
-              child: SizedBox(
-                width: 20,
-                height: 20,
-                child: CircularProgressIndicator(
-                  strokeWidth: 2,
-                  valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
-                ),
-              ),
-            )
-          else if (_devices.isNotEmpty)
-            Padding(
-              padding: const EdgeInsets.only(right: 16.0),
-              child: DropdownButton<int>(
-                value: _selectedDeviceId,
-                dropdownColor: isDarkMode
-                    ? Colors.grey[800]
-                    : Colors.teal.shade700,
-                icon: const Icon(Icons.arrow_drop_down, color: Colors.white),
-                style: const TextStyle(color: Colors.white),
-                underline: const SizedBox(),
-                items: _devices.map((device) {
-                  return DropdownMenuItem<int>(
-                    value: device['id'] as int,
-                    child: Text(
-                      device['nom'] as String,
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  );
-                }).toList(),
-                onChanged: (value) {
-                  if (value != null) {
-                    setState(() {
-                      _selectedDeviceId = value;
-                    });
-                    _loadTransactions();
-                  }
-                },
-              ),
-            ),
-          const UserInitialAvatar(),
-        ],
+        actions: [const UserInitialAvatar()],
       ),
-      body: FutureBuilder<List<FinanceTransaction>>(
-        future: _futureTransactions,
-        builder: (context, snapshot) {
-          if (snapshot.connectionState == ConnectionState.waiting) {
-            return const Center(child: CircularProgressIndicator());
-          }
-          if (!snapshot.hasData || snapshot.data!.isEmpty) {
-            return RefreshIndicator(
-              onRefresh: _refresh,
-              child: ListView(
-                padding: const EdgeInsets.all(16),
-                children: const [
-                  SizedBox(height: 24),
-                  Center(child: Text("Aucune transaction disponible.")),
+      body: Column(
+        children: [
+          // TabBar pour les devises
+          Container(
+            margin: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: isDarkMode ? Colors.grey[800] : Colors.teal,
+              borderRadius: BorderRadius.circular(6),
+            ),
+            child: TabBar(
+              controller: _tabController,
+              labelColor: Colors.white,
+              unselectedLabelColor: Colors.white,
+              indicator: BoxDecoration(
+                gradient: LinearGradient(
+                  colors: [Colors.teal.shade400, Colors.teal.shade600],
+                ),
+                borderRadius: BorderRadius.circular(6),
+                boxShadow: [
+                  BoxShadow(
+                    color: (isDarkMode ? Colors.grey : Colors.teal).withOpacity(
+                      0.3,
+                    ),
+                    blurRadius: 8,
+                    offset: const Offset(0, 2),
+                  ),
                 ],
               ),
-            );
-          }
-
-          final transactions = snapshot.data!;
-
-          final categoryOptions = <String>{'Toutes'}
-            ..addAll(
-              transactions
-                  .map((t) => t.category.trim())
-                  .where((c) => c.isNotEmpty),
-            );
-
-          final filtered = transactions.where((tx) {
-            final matchesType = switch (_typeFilter) {
-              _HistoryTypeFilter.all => true,
-              _HistoryTypeFilter.income => tx.type == TransactionType.income,
-              _HistoryTypeFilter.expense => tx.type == TransactionType.expense,
-            };
-
-            final matchesCategory =
-                _categoryFilter == 'Toutes' || tx.category == _categoryFilter;
-
-            return matchesType && matchesCategory;
-          }).toList();
-
-          return RefreshIndicator(
-            onRefresh: _refresh,
-            child: ListView.builder(
-              padding: const EdgeInsets.all(16),
-              itemCount: filtered.length + 1,
-              itemBuilder: (context, index) {
-                if (index == 0) {
-                  final options = categoryOptions.toList()..sort();
-                  if (!options.contains(_categoryFilter)) {
-                    _categoryFilter = 'Toutes';
-                  }
-
-                  return Padding(
-                    padding: const EdgeInsets.only(bottom: 12),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Wrap(
-                          spacing: 8,
-                          runSpacing: 8,
-                          children: [
-                            ChoiceChip(
-                              label: const Text('Toutes'),
-                              selected: _typeFilter == _HistoryTypeFilter.all,
-                              onSelected: (_) {
-                                setState(() {
-                                  _typeFilter = _HistoryTypeFilter.all;
-                                });
-                              },
-                            ),
-                            ChoiceChip(
-                              label: const Text('Entrées'),
-                              selected:
-                                  _typeFilter == _HistoryTypeFilter.income,
-                              onSelected: (_) {
-                                setState(() {
-                                  _typeFilter = _HistoryTypeFilter.income;
-                                });
-                              },
-                            ),
-                            ChoiceChip(
-                              label: const Text('Dépenses'),
-                              selected:
-                                  _typeFilter == _HistoryTypeFilter.expense,
-                              onSelected: (_) {
-                                setState(() {
-                                  _typeFilter = _HistoryTypeFilter.expense;
-                                });
-                              },
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 10),
-                        Row(
-                          children: [
-                            const Text(
-                              'Catégorie:',
-                              style: TextStyle(fontWeight: FontWeight.w600),
-                            ),
-                            const SizedBox(width: 10),
-                            Expanded(
-                              child: Container(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 12,
-                                ),
-                                decoration: BoxDecoration(
-                                  color: isDarkMode
-                                      ? Colors.grey[850]
-                                      : Colors.white,
-                                  borderRadius: BorderRadius.circular(12),
-                                  border: Border.all(
-                                    color: isDarkMode
-                                        ? Colors.grey.shade700
-                                        : Colors.grey.shade300,
-                                  ),
-                                ),
-                                child: DropdownButtonHideUnderline(
-                                  child: DropdownButton<String>(
-                                    value: _categoryFilter,
-                                    isExpanded: true,
-                                    items: options
-                                        .map(
-                                          (c) => DropdownMenuItem<String>(
-                                            value: c,
-                                            child: Text(c),
-                                          ),
-                                        )
-                                        .toList(),
-                                    onChanged: (value) {
-                                      if (value == null) return;
-                                      setState(() {
-                                        _categoryFilter = value;
-                                      });
-                                    },
-                                  ),
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                        if (filtered.isEmpty)
-                          const Padding(
-                            padding: EdgeInsets.only(top: 16),
-                            child: Center(
-                              child: Text('Aucune transaction pour ce filtre.'),
-                            ),
-                          ),
-                      ],
-                    ),
-                  );
-                }
-
-                final tx = filtered[index - 1];
-                final isIncome = tx.type == TransactionType.income;
-                final color = isIncome ? Colors.green : Colors.red;
-
-                return Card(
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(16),
+              indicatorSize: TabBarIndicatorSize.tab,
+              indicatorWeight: 0,
+              labelStyle: const TextStyle(
+                fontWeight: FontWeight.bold,
+                fontSize: 14,
+              ),
+              unselectedLabelStyle: const TextStyle(
+                fontWeight: FontWeight.w600,
+                fontSize: 14,
+              ),
+              tabs: const [
+                Tab(
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.attach_money, size: 18, color: Colors.white),
+                      SizedBox(width: 6),
+                      Text('Dollars'),
+                    ],
                   ),
-                  margin: const EdgeInsets.symmetric(vertical: 6),
-                  child: ListTile(
-                    leading: CircleAvatar(
-                      backgroundColor: color.withAlpha(51),
-                      child: Icon(
-                        isIncome ? Icons.arrow_downward : Icons.arrow_upward,
-                        color: color,
-                      ),
-                    ),
-                    title: Text(
-                      tx.category.isEmpty ? 'Sans catégorie' : tx.category,
-                    ),
-                    subtitle: Text(
-                      tx.note.isEmpty
-                          ? _formatDate(tx.createdAt)
-                          : '${tx.note} • ${_formatDate(tx.createdAt)}',
-                    ),
-                    trailing: Text(
-                      '${isIncome ? '+' : '-'}${_currency.format(tx.amount)}',
-                      style: TextStyle(
-                        fontWeight: FontWeight.bold,
-                        color: color,
-                      ),
-                    ),
+                ),
+                Tab(
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.money, size: 18, color: Colors.white),
+                      SizedBox(width: 6),
+                      Text('Francs'),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+          // Contenu des onglets
+          Expanded(
+            child: TabBarView(
+              controller: _tabController,
+              children: [
+                // Onglet USD
+                _CurrencyHistoryTab(
+                  futureTransactions: _usdTransactions,
+                  typeFilter: _typeFilter,
+                  categoryFilter: _categoryFilter,
+                  onTypeFilterChanged: (filter) {
+                    setState(() {
+                      _typeFilter = filter;
+                    });
+                    _loadTransactions();
+                  },
+                  onCategoryFilterChanged: (category) {
+                    setState(() {
+                      _categoryFilter = category;
+                    });
+                    _loadTransactions();
+                  },
+                  currency: 'USD',
+                  currencySymbol: '\$',
+                  onRefresh: _refresh,
+                  devices: _devices,
+                  selectedDeviceId: _usdSelectedDeviceId,
+                  onDeviceChanged: (deviceId) {
+                    setState(() {
+                      _usdSelectedDeviceId = deviceId;
+                    });
+                    _loadTransactions();
+                  },
+                ),
+                // Onglet FC
+                _CurrencyHistoryTab(
+                  futureTransactions: _fcTransactions,
+                  typeFilter: _typeFilter,
+                  categoryFilter: _categoryFilter,
+                  onTypeFilterChanged: (filter) {
+                    setState(() {
+                      _typeFilter = filter;
+                    });
+                    _loadTransactions();
+                  },
+                  onCategoryFilterChanged: (category) {
+                    setState(() {
+                      _categoryFilter = category;
+                    });
+                    _loadTransactions();
+                  },
+                  currency: 'FC',
+                  currencySymbol: 'FC',
+                  onRefresh: _refresh,
+                  devices: _devices,
+                  selectedDeviceId: _fcSelectedDeviceId,
+                  onDeviceChanged: (deviceId) {
+                    setState(() {
+                      _fcSelectedDeviceId = deviceId;
+                    });
+                    _loadTransactions();
+                  },
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _CurrencyHistoryTab extends StatelessWidget {
+  const _CurrencyHistoryTab({
+    required this.futureTransactions,
+    required this.typeFilter,
+    required this.categoryFilter,
+    required this.onTypeFilterChanged,
+    required this.onCategoryFilterChanged,
+    required this.currency,
+    required this.currencySymbol,
+    required this.onRefresh,
+    required this.devices,
+    required this.selectedDeviceId,
+    required this.onDeviceChanged,
+  });
+
+  final Future<List<FinanceTransaction>> futureTransactions;
+  final _HistoryTypeFilter typeFilter;
+  final String categoryFilter;
+  final Function(_HistoryTypeFilter) onTypeFilterChanged;
+  final Function(String) onCategoryFilterChanged;
+  final String currency;
+  final String currencySymbol;
+  final Future<void> Function() onRefresh;
+  final List<Map<String, dynamic>> devices;
+  final int? selectedDeviceId;
+  final Function(int?) onDeviceChanged;
+
+  String? _getDeviceName() {
+    if (devices.isEmpty) return null;
+    try {
+      return devices.firstWhere((d) => d['id'] == selectedDeviceId)['nom']
+          as String?;
+    } catch (e) {
+      return null;
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final _currency = NumberFormat.currency(symbol: '');
+    final isDarkMode = Provider.of<ThemeProvider>(context).isDarkMode;
+    final deviceName = _getDeviceName();
+
+    return Column(
+      children: [
+        // Liste des transactions
+        Expanded(
+          child: FutureBuilder<List<FinanceTransaction>>(
+            future: futureTransactions,
+            builder: (context, snapshot) {
+              if (snapshot.connectionState == ConnectionState.waiting) {
+                return const Center(child: CircularProgressIndicator());
+              }
+              if (!snapshot.hasData || snapshot.data!.isEmpty) {
+                return RefreshIndicator(
+                  onRefresh: onRefresh,
+                  child: ListView(
+                    padding: const EdgeInsets.all(16),
+                    children: const [
+                      SizedBox(height: 24),
+                      Center(child: Text("Aucune transaction disponible.")),
+                    ],
                   ),
                 );
-              },
-            ),
-          );
-        },
-      ),
+              }
+
+              final transactions = snapshot.data!;
+
+              final categoryOptions = <String>{'Toutes'}
+                ..addAll(
+                  transactions
+                      .map((t) => t.category.trim())
+                      .where((c) => c.isNotEmpty),
+                );
+
+              final filtered = transactions.where((tx) {
+                final matchesCategory =
+                    categoryFilter == 'Toutes' || tx.category == categoryFilter;
+
+                return matchesCategory;
+              }).toList();
+
+              return RefreshIndicator(
+                onRefresh: onRefresh,
+                child: ListView.builder(
+                  padding: const EdgeInsets.all(16),
+                  itemCount: filtered.length + 1,
+                  itemBuilder: (context, index) {
+                    if (index == 0) {
+                      final options = categoryOptions.toList()..sort();
+                      if (!options.contains(categoryFilter)) {
+                        onCategoryFilterChanged('Toutes');
+                      }
+
+                      return Padding(
+                        padding: const EdgeInsets.only(bottom: 12),
+                        child: Wrap(
+                          spacing: 8,
+                          runSpacing: 8,
+                          children: options.map((cat) {
+                            return ChoiceChip(
+                              label: Text(cat),
+                              selected: categoryFilter == cat,
+                              onSelected: (_) {
+                                onCategoryFilterChanged(cat);
+                              },
+                            );
+                          }).toList(),
+                        ),
+                      );
+                    }
+
+                    final tx = filtered[index - 1];
+                    final isIncome = tx.type == TransactionType.income;
+                    final color = isIncome ? Colors.green : Colors.red;
+
+                    return Card(
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(16),
+                      ),
+                      margin: const EdgeInsets.symmetric(vertical: 6),
+                      child: ListTile(
+                        leading: CircleAvatar(
+                          backgroundColor: color.withAlpha(51),
+                          child: Icon(
+                            isIncome
+                                ? Icons.arrow_downward
+                                : Icons.arrow_upward,
+                            color: color,
+                          ),
+                        ),
+                        title: Text(
+                          tx.category.isEmpty ? 'Sans catégorie' : tx.category,
+                        ),
+                        subtitle: Text(
+                          deviceName != null
+                              ? tx.note.isEmpty
+                                    ? '$deviceName • ${_formatDate(tx.createdAt)}'
+                                    : '$deviceName • ${tx.note} • ${_formatDate(tx.createdAt)}'
+                              : tx.note.isEmpty
+                              ? _formatDate(tx.createdAt)
+                              : '${tx.note} • ${_formatDate(tx.createdAt)}',
+                        ),
+                        trailing: Text(
+                          '${isIncome ? '+' : '-'}${_currency.format(tx.amount)} ${currencySymbol}',
+                          style: TextStyle(
+                            fontWeight: FontWeight.bold,
+                            color: color,
+                          ),
+                        ),
+                      ),
+                    );
+                  },
+                ),
+              );
+            },
+          ),
+        ),
+      ],
     );
   }
 

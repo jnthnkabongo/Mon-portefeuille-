@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:portefeuille/pages/statistiques_page_new.dart';
 import 'home_page.dart';
-import 'historiques.dart';
+import 'package:portefeuille/pages/historiques.dart';
 import 'profile_page.dart';
 import 'settings_page.dart';
 
