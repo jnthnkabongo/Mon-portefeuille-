@@ -20,7 +20,7 @@ class DatabaseService {
 
     return await openDatabase(
       path,
-      version: 4,
+      version: 5,
       onCreate: (db, version) async {
         await _createTables(db);
       },
@@ -71,6 +71,13 @@ class DatabaseService {
       // Insérer des données par défaut
       await _insertDefaultData(db);
     }
+
+    // Ajouter le champ currency pour la version 5
+    if (oldVersion < 5) {
+      await db.execute(
+        'ALTER TABLE transactions ADD COLUMN currency TEXT DEFAULT "USD"',
+      );
+    }
   }
 
   Future<void> _createTables(Database db) async {
@@ -100,6 +107,7 @@ class DatabaseService {
         amount REAL NOT NULL,
         category TEXT NOT NULL,
         note TEXT NOT NULL,
+        currency TEXT DEFAULT 'USD',
         device_id INTEGER,
         created_at INTEGER NOT NULL,
         FOREIGN KEY (device_id) REFERENCES devices (id)
@@ -290,6 +298,51 @@ class DatabaseService {
   Future<int> deleteTransaction(int id) async {
     final db = await database;
     return await db.delete('transactions', where: 'id = ?', whereArgs: [id]);
+  }
+
+  // Mettre à jour les transactions qui n'ont pas de devise
+  Future<void> updateTransactionsWithoutCurrency() async {
+    final db = await database;
+
+    // Vérifier les transactions sans devise
+    final result = await db.query(
+      'transactions',
+      where: 'currency IS NULL OR currency = ""',
+    );
+
+    print('Found ${result.length} transactions without currency');
+
+    // Mettre à jour avec 'USD' par défaut
+    if (result.isNotEmpty) {
+      await db.update('transactions', {
+        'currency': 'USD',
+      }, where: 'currency IS NULL OR currency = ""');
+      print('Updated ${result.length} transactions to USD');
+    }
+  }
+
+  // Convertir une transaction spécifique en FC
+  Future<void> convertTransactionToFC(int transactionId) async {
+    final db = await database;
+    await db.update(
+      'transactions',
+      {'currency': 'FC'},
+      where: 'id = ?',
+      whereArgs: [transactionId],
+    );
+    print('Converted transaction $transactionId to FC');
+  }
+
+  // Convertir toutes les transactions d'un device en FC
+  Future<void> convertAllTransactionsToFC(int deviceId) async {
+    final db = await database;
+    final result = await db.update(
+      'transactions',
+      {'currency': 'FC'},
+      where: 'device_id = ?',
+      whereArgs: [deviceId],
+    );
+    print('Converted $result transactions to FC for device $deviceId');
   }
 
   Future<Map<String, dynamic>> getTotals({int? deviceId}) async {

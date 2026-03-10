@@ -13,26 +13,63 @@ class StatsPage extends StatefulWidget {
   State<StatsPage> createState() => _StatsPageState();
 }
 
-class _StatsPageState extends State<StatsPage> {
-  double income = 0;
-  double expense = 0;
-  Map<String, double> _categoryTotals = {};
+class _StatsPageState extends State<StatsPage>
+    with SingleTickerProviderStateMixin {
+  TabController? _tabController;
+  bool _hasLoadedData = false;
+
+  // Variables spécifiques par devise
+  double _usdIncome = 0;
+  double _usdExpense = 0;
+  Map<String, double> _usdCategoryTotals = {};
+  double _fcIncome = 0;
+  double _fcExpense = 0;
+  Map<String, double> _fcCategoryTotals = {};
+
   bool _isLoading = true;
   int? _selectedDeviceId;
   List<Map<String, dynamic>> _devices = [];
-  bool _isLoadingDevices = true;
   final DatabaseService _databaseService = DatabaseService();
-  final formatter = NumberFormat('#,###', 'fr_FR');
 
   @override
   void initState() {
     super.initState();
-    _loadData();
+    _tabController = TabController(length: 2, vsync: this);
+    _tabController?.addListener(_onTabChanged);
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (!_hasLoadedData) {
+      _hasLoadedData = true;
+      _loadData();
+    }
+  }
+
+  @override
+  void dispose() {
+    _tabController?.removeListener(_onTabChanged);
+    _tabController?.dispose();
+    super.dispose();
+  }
+
+  void _onTabChanged() {
+    if (mounted) {
+      _loadTransactions();
+    }
   }
 
   Future<void> _loadData() async {
+    setState(() => _isLoading = true);
+
     await _loadDevices();
-    await _load();
+
+    if (_selectedDeviceId == null && _devices.isNotEmpty) {
+      _selectedDeviceId = _devices.first['id'] as int;
+    }
+
+    await _loadTransactions();
   }
 
   Future<void> _loadDevices() async {
@@ -41,56 +78,106 @@ class _StatsPageState extends State<StatsPage> {
       if (mounted) {
         setState(() {
           _devices = devices;
-          _isLoadingDevices = false;
           if (_selectedDeviceId == null && _devices.isNotEmpty) {
             _selectedDeviceId = _devices.first['id'] as int;
           }
         });
       }
     } catch (e) {
-      if (mounted) {
-        setState(() {
-          _isLoadingDevices = false;
-        });
-      }
+      if (mounted) setState(() {});
     }
   }
 
-  Future<void> _load() async {
+  Future<void> _loadTransactions() async {
     try {
-      final totals = await _databaseService.getTotals(
-        deviceId: _selectedDeviceId,
-      );
       final transactionsData = await _databaseService.getAllTransactions(
         deviceId: _selectedDeviceId,
       );
 
-      // Calculer les totaux par catégorie directement depuis les données brutes
-      final categoryTotals = <String, double>{};
+      double usdIncome = 0, usdExpense = 0, fcIncome = 0, fcExpense = 0;
+      final usdCategoryTotals = <String, double>{};
+      final fcCategoryTotals = <String, double>{};
+
       for (final data in transactionsData) {
-        final category = (data['category'] as String? ?? '').isEmpty
-            ? 'Sans catégorie'
-            : data['category'] as String;
+        final category = data['category'] as String? ?? 'Sans catégorie';
         final amount = (data['amount'] as num?)?.toDouble() ?? 0.0;
-        categoryTotals[category] = (categoryTotals[category] ?? 0) + amount;
+        final currency = data['currency'] as String? ?? 'USD';
+        final type = data['type'] as String? ?? 'expense';
+
+        final validCurrency = (currency != 'USD' && currency != 'FC')
+            ? 'USD'
+            : currency;
+
+        if (validCurrency == 'USD') {
+          usdCategoryTotals[category] =
+              (usdCategoryTotals[category] ?? 0) + amount;
+          if (type == 'income') {
+            usdIncome += amount;
+          } else {
+            usdExpense += amount;
+          }
+        } else {
+          fcCategoryTotals[category] =
+              (fcCategoryTotals[category] ?? 0) + amount;
+          if (type == 'income') {
+            fcIncome += amount;
+          } else {
+            fcExpense += amount;
+          }
+        }
       }
 
-      setState(() {
-        income = totals['income'] ?? 0;
-        expense = totals['expense'] ?? 0;
-        _categoryTotals = categoryTotals;
-        _isLoading = false;
-      });
+      if (mounted) {
+        setState(() {
+          _usdIncome = usdIncome;
+          _usdExpense = usdExpense;
+          _usdCategoryTotals = usdCategoryTotals;
+          _fcIncome = fcIncome;
+          _fcExpense = fcExpense;
+          _fcCategoryTotals = fcCategoryTotals;
+          _isLoading = false;
+        });
+      }
     } catch (e) {
-      setState(() {
-        _isLoading = false;
-      });
+      if (mounted) setState(() => _isLoading = false);
+    }
+  }
+
+  String? _getDeviceName() {
+    if (_devices.isEmpty) return null;
+    try {
+      return _devices.firstWhere((d) => d['id'] == _selectedDeviceId)['nom']
+          as String?;
+    } catch (e) {
+      return null;
     }
   }
 
   @override
   Widget build(BuildContext context) {
     final isDarkMode = Provider.of<ThemeProvider>(context).isDarkMode;
+
+    if (_tabController == null) {
+      _tabController = TabController(length: 2, vsync: this);
+    }
+
+    if (_isLoading) {
+      return Scaffold(
+        backgroundColor: isDarkMode ? Colors.grey[900] : Colors.grey[100],
+        appBar: AppBar(
+          title: const Text(
+            "Statistiques",
+            style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white),
+          ),
+          backgroundColor: isDarkMode ? Colors.grey[900] : Colors.teal,
+          elevation: 0,
+        ),
+        body: const Center(child: CircularProgressIndicator()),
+      );
+    }
+
+    final deviceName = _getDeviceName();
+
     return Scaffold(
       appBar: AppBar(
         title: const Text(
@@ -99,137 +186,109 @@ class _StatsPageState extends State<StatsPage> {
         ),
         backgroundColor: isDarkMode ? Colors.grey[900] : Colors.teal,
         elevation: 0,
-        actions: [
-          if (_isLoadingDevices)
-            const Padding(
-              padding: EdgeInsets.all(16.0),
-              child: SizedBox(
-                width: 20,
-                height: 20,
-                child: CircularProgressIndicator(
-                  strokeWidth: 2,
-                  valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
-                ),
-              ),
-            )
-          else if (_devices.isNotEmpty)
-            Padding(
-              padding: const EdgeInsets.only(right: 16.0),
-              child: DropdownButton<int>(
-                value: _selectedDeviceId,
-                dropdownColor: isDarkMode
-                    ? Colors.grey[800]
-                    : Colors.teal.shade700,
-                icon: const Icon(Icons.arrow_drop_down, color: Colors.white),
-                style: const TextStyle(color: Colors.white),
-                underline: const SizedBox(),
-                items: _devices.map((device) {
-                  return DropdownMenuItem<int>(
-                    value: device['id'] as int,
-                    child: Text(
-                      device['nom'] as String,
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  );
-                }).toList(),
-                onChanged: (value) {
-                  if (value != null) {
-                    setState(() {
-                      _selectedDeviceId = value;
-                    });
-                    _load();
-                  }
-                },
-              ),
-            ),
-          const UserInitialAvatar(),
-        ],
+        actions: const [UserInitialAvatar()],
       ),
-      body: _isLoading
-          ? const Center(child: CircularProgressIndicator())
-          : RefreshIndicator(
-              onRefresh: _load,
-              child: ListView(
-                physics: const AlwaysScrollableScrollPhysics(),
-                padding: const EdgeInsets.only(
-                  left: 16,
-                  top: 16,
-                  right: 16,
-                  bottom: 100,
+      body: RefreshIndicator(
+        onRefresh: _loadData,
+        child: Column(
+          children: [
+            // TabBar pour les devises
+            Container(
+              margin: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: isDarkMode ? Colors.grey[800] : Colors.teal,
+                borderRadius: BorderRadius.circular(6),
+              ),
+              child: TabBar(
+                controller: _tabController,
+                labelColor: Colors.white,
+                unselectedLabelColor: Colors.white,
+                indicator: BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: [Colors.teal.shade400, Colors.teal.shade600],
+                  ),
+                  borderRadius: BorderRadius.circular(6),
+                  boxShadow: [
+                    BoxShadow(
+                      color: (isDarkMode ? Colors.grey : Colors.teal)
+                          .withOpacity(0.3),
+                      blurRadius: 8,
+                      offset: const Offset(0, 2),
+                    ),
+                  ],
                 ),
-                children: [
-                  // Cartes résumé
-                  Row(
-                    children: [
-                      Expanded(
-                        child: _SummaryCard(
-                          title: 'Revenus',
-                          amount: income,
-                          color: Colors.green,
-                          icon: Icons.trending_up,
-                          deviceName:
-                              _devices.isNotEmpty && _selectedDeviceId != null
-                              ? _devices.firstWhere(
-                                      (device) =>
-                                          device['id'] == _selectedDeviceId,
-                                    )['nom']
-                                    as String?
-                              : null,
-                        ),
-                      ),
-                      const SizedBox(width: 16),
-                      Expanded(
-                        child: _SummaryCard(
-                          title: 'Dépenses',
-                          amount: expense,
-                          color: Colors.red,
-                          icon: Icons.trending_down,
-                          deviceName:
-                              _devices.isNotEmpty && _selectedDeviceId != null
-                              ? _devices.firstWhere(
-                                      (device) =>
-                                          device['id'] == _selectedDeviceId,
-                                    )['nom']
-                                    as String?
-                              : null,
-                        ),
-                      ),
-                    ],
+                indicatorSize: TabBarIndicatorSize.tab,
+                indicatorWeight: 0,
+                labelStyle: const TextStyle(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 14,
+                ),
+                unselectedLabelStyle: const TextStyle(
+                  fontWeight: FontWeight.w600,
+                  fontSize: 14,
+                ),
+                splashFactory: InkRipple.splashFactory,
+                overlayColor: MaterialStateProperty.resolveWith<Color?>((
+                  Set<MaterialState> states,
+                ) {
+                  if (states.contains(MaterialState.pressed)) {
+                    return Colors.teal.withOpacity(0.1);
+                  }
+                  return null;
+                }),
+                tabs: const [
+                  Tab(
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(Icons.attach_money, size: 18, color: Colors.white),
+                        SizedBox(width: 6),
+                        Text('Dollars'),
+                      ],
+                    ),
                   ),
-                  const SizedBox(height: 24),
-                  // Solde
-                  _BalanceCard(
-                    balance: income - expense,
-                    deviceName: _devices.isNotEmpty && _selectedDeviceId != null
-                        ? _devices.firstWhere(
-                                (device) => device['id'] == _selectedDeviceId,
-                              )['nom']
-                              as String?
-                        : null,
-                  ),
-                  const SizedBox(height: 24),
-                  // Graphiques
-                  Column(
-                    children: [
-                      // Graphique circulaire
-                      SizedBox(
-                        height: 300,
-                        child: _ChartCard(income: income, expense: expense),
-                      ),
-                      const SizedBox(height: 16),
-                      // Graphique par catégorie
-                      SizedBox(
-                        height: 300,
-                        child: _CategoryChart(categoryTotals: _categoryTotals),
-                      ),
-                    ],
+                  Tab(
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(Icons.money, size: 18, color: Colors.white),
+                        SizedBox(width: 6),
+                        Text('Francs'),
+                      ],
+                    ),
                   ),
                 ],
               ),
             ),
+            // Contenu des onglets
+            Expanded(
+              child: TabBarView(
+                controller: _tabController,
+                children: [
+                  // Onglet USD
+                  _CurrencyStatsTab(
+                    income: _usdIncome,
+                    expense: _usdExpense,
+                    categoryTotals: _usdCategoryTotals,
+                    currency: 'USD',
+                    currencySymbol: '\$',
+                    deviceName: deviceName,
+                  ),
+                  // Onglet FC
+                  _CurrencyStatsTab(
+                    income: _fcIncome,
+                    expense: _fcExpense,
+                    categoryTotals: _fcCategoryTotals,
+                    currency: 'FC',
+                    currencySymbol: 'FC',
+                    deviceName: deviceName,
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }
@@ -305,7 +364,6 @@ class _SummaryCard extends StatelessWidget {
                 color: color,
               ),
             ),
-            //Text('${formatter.format(amount)} FC'),
           ],
         ),
       ),
@@ -322,6 +380,7 @@ class _BalanceCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isPositive = balance >= 0;
+
     return Card(
       elevation: 4,
       child: Padding(
@@ -441,7 +500,6 @@ class _ChartCard extends StatelessWidget {
                           ),
                         ),
                         titlesData: FlTitlesData(
-                          show: true,
                           bottomTitles: AxisTitles(
                             sideTitles: SideTitles(
                               showTitles: true,
@@ -451,14 +509,10 @@ class _ChartCard extends StatelessWidget {
                                   fontWeight: FontWeight.bold,
                                   fontSize: 12,
                                 );
-                                switch (value.toInt()) {
-                                  case 0:
-                                    return Text('Revenus', style: style);
-                                  case 1:
-                                    return Text('Dépenses', style: style);
-                                  default:
-                                    return const Text('');
-                                }
+                                return Text(
+                                  value.toInt() == 0 ? 'Revenus' : 'Dépenses',
+                                  style: style,
+                                );
                               },
                             ),
                           ),
@@ -525,7 +579,6 @@ class _ChartCard extends StatelessWidget {
                     ),
             ),
             const SizedBox(height: 16),
-            // Légende avec montants
             Column(
               children: [
                 _LegendItem(
@@ -533,7 +586,6 @@ class _ChartCard extends StatelessWidget {
                   label: 'Revenus',
                   value: income,
                   percentage: incomePercentage,
-                  isBold: false,
                 ),
                 const SizedBox(height: 2),
                 _LegendItem(
@@ -541,7 +593,6 @@ class _ChartCard extends StatelessWidget {
                   label: 'Dépenses',
                   value: expense,
                   percentage: expensePercentage,
-                  isBold: false,
                 ),
               ],
             ),
@@ -570,7 +621,6 @@ class _CategoryChart extends StatelessWidget {
       Colors.cyan,
     ];
 
-    // Trier les catégories par montant (décroissant) et prendre les 7 premières
     final sortedCategories = categoryTotals.entries.toList()
       ..sort((a, b) => b.value.compareTo(a.value));
     final topCategories = sortedCategories.take(7).toList();
@@ -604,13 +654,11 @@ class _CategoryChart extends StatelessWidget {
                         sections: topCategories.asMap().entries.map((entry) {
                           final index = entry.key;
                           final category = entry.value;
-                          final percentage =
-                              (category.value /
-                              categoryTotals.values.fold(
-                                0.0,
-                                (a, b) => a + b.abs(),
-                              ) *
-                              100);
+                          final total = categoryTotals.values.fold(
+                            0.0,
+                            (a, b) => a + b.abs(),
+                          );
+                          final percentage = (category.value / total * 100);
                           return PieChartSectionData(
                             value: category.value,
                             title: '${percentage.toStringAsFixed(1)}%',
@@ -630,7 +678,6 @@ class _CategoryChart extends StatelessWidget {
                     ),
             ),
             const SizedBox(height: 16),
-            // Légende
             SingleChildScrollView(
               scrollDirection: Axis.horizontal,
               child: Row(
@@ -674,14 +721,12 @@ class _LegendItem extends StatelessWidget {
     required this.label,
     required this.value,
     required this.percentage,
-    required this.isBold,
   });
 
   final Color color;
   final String label;
   final double value;
   final double percentage;
-  final bool isBold;
 
   @override
   Widget build(BuildContext context) {
@@ -693,22 +738,84 @@ class _LegendItem extends StatelessWidget {
           decoration: BoxDecoration(color: color, shape: BoxShape.circle),
         ),
         const SizedBox(width: 8),
-        Expanded(
-          child: Text(
-            label,
-            style: TextStyle(
-              fontWeight: isBold ? FontWeight.bold : FontWeight.normal,
-              fontSize: isBold ? 14 : 12,
-            ),
-          ),
-        ),
+        Expanded(child: Text(label, style: const TextStyle(fontSize: 12))),
         Text(
           '${NumberFormat.currency(symbol: '').format(value)} (${percentage.toStringAsFixed(1)}%)',
           style: TextStyle(
-            fontWeight: isBold ? FontWeight.bold : FontWeight.normal,
-            fontSize: isBold ? 14 : 12,
+            fontSize: 12,
             color: color,
+            fontWeight: FontWeight.bold,
           ),
+        ),
+      ],
+    );
+  }
+}
+
+class _CurrencyStatsTab extends StatelessWidget {
+  const _CurrencyStatsTab({
+    required this.income,
+    required this.expense,
+    required this.categoryTotals,
+    required this.currency,
+    required this.currencySymbol,
+    this.deviceName,
+  });
+
+  final double income;
+  final double expense;
+  final Map<String, double> categoryTotals;
+  final String currency;
+  final String currencySymbol;
+  final String? deviceName;
+
+  @override
+  Widget build(BuildContext context) {
+    return ListView(
+      physics: const AlwaysScrollableScrollPhysics(),
+      padding: const EdgeInsets.only(left: 16, top: 16, right: 16, bottom: 100),
+      children: [
+        // Cartes résumé
+        Row(
+          children: [
+            Expanded(
+              child: _SummaryCard(
+                title: 'Revenus',
+                amount: income,
+                color: Colors.green,
+                icon: Icons.trending_up,
+                deviceName: deviceName,
+              ),
+            ),
+            const SizedBox(width: 16),
+            Expanded(
+              child: _SummaryCard(
+                title: 'Dépenses',
+                amount: expense,
+                color: Colors.red,
+                icon: Icons.trending_down,
+                deviceName: deviceName,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 24),
+        // Solde
+        _BalanceCard(balance: income - expense, deviceName: deviceName),
+        const SizedBox(height: 24),
+        // Graphiques
+        Column(
+          children: [
+            SizedBox(
+              height: 300,
+              child: _ChartCard(income: income, expense: expense),
+            ),
+            const SizedBox(height: 16),
+            SizedBox(
+              height: 300,
+              child: _CategoryChart(categoryTotals: categoryTotals),
+            ),
+          ],
         ),
       ],
     );

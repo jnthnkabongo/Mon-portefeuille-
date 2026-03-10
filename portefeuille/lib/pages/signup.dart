@@ -43,6 +43,13 @@ class _SignupPageState extends State<SignupPage> {
     return sha256.convert(utf8.encode(password)).toString();
   }
 
+  Future<void> login() async {
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (context) => const LoginPage()),
+    );
+  }
+
   /// Fonction signup
   Future<void> signup() async {
     final name = nameController.text.trim();
@@ -257,13 +264,40 @@ class _SignupPageState extends State<SignupPage> {
                                 ),
                         ),
                       ),
+                      SizedBox(height: 12),
+                      SizedBox(
+                        width: double.infinity,
+                        height: 48,
+
+                        child: ElevatedButton(
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.teal,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                          ),
+                          onPressed: isLoading ? null : login,
+                          child: isLoading
+                              ? const CircularProgressIndicator(
+                                  color: Colors.white,
+                                )
+                              : const Text(
+                                  "Connexion",
+                                  style: TextStyle(
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.bold,
+                                    color: Colors.white,
+                                  ),
+                                ),
+                        ),
+                      ),
                     ],
                   ),
                 ),
               ),
 
               const SizedBox(height: 24),
-
+              Text("Vous avez deja un compte conncetez-vous"),
               // Indication biométrie
               if (biometricAvailable)
                 Text(
